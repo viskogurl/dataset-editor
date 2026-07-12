@@ -1,13 +1,13 @@
-# dotenv environment variable files
+# Environment variables
 .env
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
+.env.*.local
 
-# Fresh build directory
+# Fresh/Vite build output
 _fresh/
-# npm + other dependencies
+vite.config.ts.timestamp-*
+
+# Dependencies and caches
 node_modules/
 vendor/
-
+coverage/
+.DS_Store
