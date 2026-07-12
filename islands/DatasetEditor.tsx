@@ -9,10 +9,8 @@ import {
 import {
   type DatasetPair,
   GENERATION_PROMPT,
-  type ImportMode,
   parseDatasetText,
   serializeOpenAIDataset,
-  serializePairDataset,
 } from "@/lib/dataset.ts";
 
 interface EditorRow extends DatasetPair {
@@ -58,7 +56,6 @@ export default function DatasetEditor() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingImportMode = useRef<ImportMode>("auto");
   const pollingRef = useRef(false);
   const toastIdRef = useRef(0);
 
@@ -160,14 +157,13 @@ export default function DatasetEditor() {
     showToast("Row removed.", "success");
   };
 
-  const chooseImport = (mode: ImportMode) => {
-    pendingImportMode.current = mode;
+  const chooseImport = () => {
     fileInputRef.current?.click();
   };
 
-  const importFile = async (file: File, mode: ImportMode) => {
+  const importFile = async (file: File) => {
     try {
-      const pairs = parseDatasetText(await file.text(), mode);
+      const pairs = parseDatasetText(await file.text());
       setRows(pairs.map((pair) => createEditorRow(pair)));
       setQuery("");
       showToast(
@@ -186,8 +182,7 @@ export default function DatasetEditor() {
     event,
   ) => {
     const file = event.currentTarget.files?.[0];
-    if (file) await importFile(file, pendingImportMode.current);
-    pendingImportMode.current = "auto";
+    if (file) await importFile(file);
     event.currentTarget.value = "";
   };
 
@@ -195,10 +190,10 @@ export default function DatasetEditor() {
     event.preventDefault();
     event.currentTarget.classList.remove("is-dragging");
     const file = event.dataTransfer?.files?.[0];
-    if (file) await importFile(file, "auto");
+    if (file) await importFile(file);
   };
 
-  const saveWorkingDataset = async () => {
+  const saveOpenAIDataset = async () => {
     if (rows.length === 0) {
       showToast("Add at least one row before saving.", "error");
       return;
@@ -206,30 +201,16 @@ export default function DatasetEditor() {
 
     try {
       await saveTextFile(
-        serializePairDataset(rows),
-        "dataset.jsonl",
+        serializeOpenAIDataset(rows),
+        "openai-dataset.jsonl",
         "application/json",
       );
-      showToast("Working dataset saved.", "success");
+      showToast("OpenAI dataset saved.", "success");
     } catch (error) {
       if (isAbortError(error)) return;
       console.error("Dataset save failed", error);
       showToast("The dataset could not be saved.", "error");
     }
-  };
-
-  const exportOpenAIDataset = () => {
-    if (rows.length === 0) {
-      showToast("Add at least one row before exporting.", "error");
-      return;
-    }
-
-    downloadTextFile(
-      serializeOpenAIDataset(rows),
-      "openai-dataset.jsonl",
-      "application/json",
-    );
-    showToast("OpenAI dataset exported.", "success");
   };
 
   const startPolling = async () => {
@@ -384,7 +365,7 @@ export default function DatasetEditor() {
               <h1 id="pageTitle">Shape better training data.</h1>
               <p>
                 Edit prompt-response pairs, review generated concepts, and
-                export a clean OpenAI-ready dataset.
+                save a clean OpenAI-ready dataset.
               </p>
             </div>
             <div class="heading-actions">
@@ -398,7 +379,7 @@ export default function DatasetEditor() {
               <button
                 class="button button-secondary"
                 type="button"
-                onClick={() => chooseImport("auto")}
+                onClick={chooseImport}
               >
                 <UploadIcon />
                 Import file
@@ -449,7 +430,7 @@ export default function DatasetEditor() {
                 <h2>Prompt-response pairs</h2>
                 <p>
                   Edit any field directly. Changes stay in the browser until you
-                  save or export.
+                  save an OpenAI JSONL file.
                 </p>
               </div>
               <div class="search-field">
@@ -474,7 +455,7 @@ export default function DatasetEditor() {
                   </span>
                   <h3>Your dataset is ready for its first example</h3>
                   <p>
-                    Add a blank row, drop or import a JSONL file, or poll the
+                    Add a blank row, drop or import an OpenAI JSONL file, or poll the
                     API to start building your dataset.
                   </p>
                   <button
@@ -582,28 +563,16 @@ export default function DatasetEditor() {
             </div>
             <PanelButton
               icon={<DownloadIcon />}
-              title="Load dataset"
-              description="Import prompt-response JSONL"
-              onClick={() => chooseImport("pairs")}
-            />
-            <PanelButton
-              icon={<CubeIcon />}
               title="Load OpenAI file"
               description="Import messages-format JSONL"
-              onClick={() => chooseImport("openai")}
-            />
-            <PanelButton
-              icon={<SaveIcon />}
-              title="Save working data"
-              description="Download editable row pairs"
-              onClick={saveWorkingDataset}
+              onClick={chooseImport}
             />
             <PanelButton
               accent
-              icon={<UploadIcon />}
-              title="Export OpenAI dataset"
-              description="Create fine-tuning JSONL"
-              onClick={exportOpenAIDataset}
+              icon={<SaveIcon />}
+              title="Save OpenAI dataset"
+              description="Download fine-tuning JSONL"
+              onClick={saveOpenAIDataset}
             />
           </section>
 
@@ -870,14 +839,6 @@ function TrashIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" />
-    </svg>
-  );
-}
-function CubeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3 4 7.5v9L12 21l8-4.5v-9L12 3Z" />
-      <path d="m4.5 7.8 7.5 4.3 7.5-4.3M12 12v9" />
     </svg>
   );
 }
