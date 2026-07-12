@@ -1,5 +1,3 @@
-export type ImportMode = "auto" | "pairs" | "openai";
-
 export interface DatasetPair {
   prompt: string;
   response: string;
@@ -11,34 +9,20 @@ export const SYSTEM_PROMPT =
 export const GENERATION_PROMPT =
   "Create a unique and engaging Instagram Reels video concept that has the potential to go viral. The video should be visually captivating and resonate with a broad audience. Consider current social media trends, humor, relatable moments, or challenges that encourage user participation. The idea should be easy to replicate and share, with a catchy hook that grabs attention in the first few seconds. Make sure the content can be adapted for various niches and has the potential to inspire others to create their own version.";
 
-export function parseDatasetText(
-  text: string,
-  requestedMode: ImportMode = "auto",
-): DatasetPair[] {
+export function parseDatasetText(text: string): DatasetPair[] {
   const lines = text.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length === 0) throw new Error("The selected file is empty.");
 
-  const parsedLines = lines.map((line, index) => {
+  return lines.map((line, index) => {
     try {
-      return JSON.parse(line) as unknown;
-    } catch {
-      throw new Error(`Line ${index + 1} is not valid JSON.`);
+      return parseOpenAIMessageRow(JSON.parse(line) as unknown, index + 1);
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        throw new Error(`Line ${index + 1} is not valid JSON.`);
+      }
+      throw error;
     }
   });
-
-  const mode = requestedMode === "auto"
-    ? detectImportMode(parsedLines[0])
-    : requestedMode;
-
-  return parsedLines.map((value, index) =>
-    parseDatasetRow(value, mode, index + 1)
-  );
-}
-
-export function serializePairDataset(rows: DatasetPair[]): string {
-  return rows.map((row) => JSON.stringify([row.prompt, row.response])).join(
-    "\n",
-  );
 }
 
 export function serializeOpenAIDataset(rows: DatasetPair[]): string {
@@ -53,41 +37,25 @@ export function serializeOpenAIDataset(rows: DatasetPair[]): string {
   ).join("\n");
 }
 
-function detectImportMode(value: unknown): Exclude<ImportMode, "auto"> {
-  return isRecord(value) && Array.isArray(value.messages) ? "openai" : "pairs";
-}
-
-function parseDatasetRow(
+function parseOpenAIMessageRow(
   value: unknown,
-  mode: Exclude<ImportMode, "auto">,
   lineNumber: number,
 ): DatasetPair {
-  if (mode === "openai") {
-    if (!isRecord(value) || !Array.isArray(value.messages)) {
-      throw new Error(`Line ${lineNumber} does not contain a messages array.`);
-    }
-
-    const messages = value.messages.filter(isRecord);
-    const userMessage = messages.find((message) => message.role === "user");
-    const assistantMessage = messages.find((message) =>
-      message.role === "assistant"
-    );
-
-    return {
-      prompt: contentToText(userMessage?.content),
-      response: contentToText(assistantMessage?.content),
-    };
-  }
-
-  if (!Array.isArray(value) || value.length < 2) {
+  if (!isRecord(value) || !Array.isArray(value.messages)) {
     throw new Error(
-      `Line ${lineNumber} must be a JSON array with a prompt and response.`,
+      `Line ${lineNumber} must be an OpenAI messages JSON object.`,
     );
   }
+
+  const messages = value.messages.filter(isRecord);
+  const userMessage = messages.find((message) => message.role === "user");
+  const assistantMessage = messages.find((message) =>
+    message.role === "assistant"
+  );
 
   return {
-    prompt: valueToText(value[0]),
-    response: valueToText(value[1]),
+    prompt: contentToText(userMessage?.content),
+    response: contentToText(assistantMessage?.content),
   };
 }
 

@@ -2,21 +2,9 @@ import assert from "node:assert/strict";
 import {
   parseDatasetText,
   serializeOpenAIDataset,
-  serializePairDataset,
 } from "./dataset.ts";
 
-Deno.test("parses prompt-response JSONL", () => {
-  const rows = parseDatasetText(
-    '["hello","world"]\n["second","answer"]',
-    "pairs",
-  );
-  assert.deepEqual(rows, [
-    { prompt: "hello", response: "world" },
-    { prompt: "second", response: "answer" },
-  ]);
-});
-
-Deno.test("auto-detects OpenAI messages JSONL", () => {
+Deno.test("parses OpenAI messages JSONL", () => {
   const rows = parseDatasetText(
     JSON.stringify({
       messages: [
@@ -29,6 +17,13 @@ Deno.test("auto-detects OpenAI messages JSONL", () => {
   assert.deepEqual(rows, [{ prompt: "prompt", response: "response" }]);
 });
 
+Deno.test("rejects prompt-response JSONL arrays", () => {
+  assert.throws(
+    () => parseDatasetText('["hello","world"]'),
+    /Line 1 must be an OpenAI messages JSON object\./,
+  );
+});
+
 Deno.test("reads structured text message content", () => {
   const rows = parseDatasetText(
     JSON.stringify({
@@ -37,15 +32,12 @@ Deno.test("reads structured text message content", () => {
         { role: "assistant", content: [{ type: "text", text: "response" }] },
       ],
     }),
-    "openai",
   );
   assert.deepEqual(rows, [{ prompt: "prompt", response: "response" }]);
 });
 
-Deno.test("serializes both supported dataset formats", () => {
+Deno.test("serializes OpenAI messages JSONL", () => {
   const rows = [{ prompt: "p", response: "r" }];
-  assert.equal(serializePairDataset(rows), '["p","r"]');
-
   const exported = JSON.parse(serializeOpenAIDataset(rows));
   assert.equal(exported.messages[1].content, "p");
   assert.equal(exported.messages[2].content, "r");

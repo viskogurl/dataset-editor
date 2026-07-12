@@ -1,7 +1,7 @@
 # Dataset Studio — Fresh on Deno Deploy
 
 A Fresh 2 application for building, reviewing, moderating, importing, and
-exporting prompt-response datasets. The browser editor is a Fresh island, and
+saving OpenAI messages-format datasets. The browser editor is a Fresh island, and
 OpenAI requests run through same-origin server routes so the API key is never
 exposed to the client.
 
@@ -18,7 +18,7 @@ exposed to the client.
 ```text
 assets/styles.css          Global editor styles
 islands/DatasetEditor.tsx  Interactive dataset editor
-lib/dataset.ts             JSONL parsing and serialization
+lib/dataset.ts             OpenAI JSONL parsing and serialization
 lib/openai.ts              Server-only OpenAI client
 routes/index.tsx            Editor page
 routes/chat-comp.ts         Generate a completion
@@ -126,15 +126,9 @@ For the simplest setup, keep this application at the repository root.
 Never place the API key in client code or commit `.env`; local environment files
 are ignored by Git.
 
-## Dataset formats
+## Dataset format
 
-The editor accepts newline-delimited JSON in either format:
-
-```json
-["user prompt", "assistant response"]
-```
-
-or OpenAI messages format:
+The editor only accepts newline-delimited OpenAI messages JSONL:
 
 ```json
 {
@@ -146,5 +140,4 @@ or OpenAI messages format:
 }
 ```
 
-Exports are available in both the editable pair format and OpenAI messages
-JSONL.
+Saved datasets are always emitted as OpenAI messages JSONL.
